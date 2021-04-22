@@ -1,0 +1,50 @@
+name: "optimize"
+version: "2.3.5"
+usage: "optimize performance of a release"
+description: |-
+  Inject Densify insights (if available) into the resource specificiations of your running containers 
+  whenever install or upgrade is called.  Insights are extracted from your preferred parameter repository 
+  (AWS Parameter Store, Densify).
+
+  SYNOPSIS
+    helm optimize [OPTION]
+    helm optimize [HELM COMMAND]
+
+  OPTIONS:
+    -c
+    <use this command to invoke a wizard to configure the plugin>
+      SUB-OPTIONS:
+        --adapter [use this to configure the repo adapter]
+        --cluster-mapping [use this to configure the cluster map]
+        --clear-config [use this to erase the existing config]
+      Eg. helm optimize -c --adapter
+      Eg. helm optimize -c --cluster-mapping
+
+    -a <release_name> <path_to_release>
+    <use this command to manage your approvals in the configured parameter repo> 
+      Eg. helm optimize -a chart chart_path/ 
+
+    -h, --help, help
+    <use this to get more information about the optimize plugin for helm>
+
+  OPTIMIZATION
+    Simply use helm as you normally would, but add the 'optimize' keyword before any command.
+    The plugin will lookup the optimal resource spec from the configured repository.
+    
+    Eg: helm optimize (install/upgrade) chart chart_dir/ --values value-file1.yaml -f value-file2.yaml
+
+ignoreFlags: false
+useTunnel: false
+command: "$HELM_PLUGIN_DIR/helm-optimize-resources"
+hooks:
+  install: "$HELM_PLUGIN_DIR/install-binary.sh"
+  update: "$HELM_PLUGIN_DIR/install-binary.sh"
+  delete: |
+    for cluster in `kubectl config view -o jsonpath={.clusters[*].name}`
+      do
+        echo "deleting helm-optimize-plugin configuration from $cluster"
+        for namespace in `kubectl get namespaces --cluster $cluster -o jsonpath={.items[*].metadata.name}`
+          do
+              kubectl delete secret helm-optimize-plugin --cluster $cluster --namespace $namespace --ignore-not-found > null
+          done
+      done
